@@ -1,0 +1,23 @@
+#ifndef COMMONDEFINE
+#define COMMONDEFINE
+
+enum MediaType {
+	MEDIA_TYPE_FILE	= 1,
+	MEDIA_TYPE_AUDIO	= 2,
+	MEDIA_TYPE_VEDIO	= 3,
+	MEDIA_TYPE_END	= 4,
+};
+
+enum IOType {
+	IO_TYPE_OFFER = 1,
+	IO_TYPE_ANSWER = 2,
+	IO_TYPE_END	= 3,
+};
+
+enum TransportType {
+	TRANSPORT_TYPE_NONE = 0,
+	TRANSPORT_TYPE_P2P,
+	TRANSPORT_TYPE_TURN, 
+};
+
+#endif // COMMANDCLIENT_H
