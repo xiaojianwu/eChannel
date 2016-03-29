@@ -82,6 +82,10 @@ private:
 
     int                         m_utpConnectID;
 
+    QByteArray                  m_writeBuf;
+
+    bool                        m_isClosing;
+
     
 };
 

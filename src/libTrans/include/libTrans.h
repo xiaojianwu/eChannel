@@ -1,14 +1,22 @@
 #ifndef TRANSFER_INTERFACE_H
 #define TRANSFER_INTERFACE_H
 
+/*!
+ * \file libTrans.h
+ * \date 2016/03/28 16:41
+ *
+ * \author wuxiaojian
+ * Contact: user@company.com
+ *
+ * \brief 
+ *
+ * 传输层接口定义
+ *
+ * \note
+*/
 #include <QString>
 
 #include <QObject>
-
-#include <QThread>
-
-
-
 
 class Channel : public QObject
 {
@@ -16,8 +24,7 @@ class Channel : public QObject
 public:
     enum ERROR_CODE {
         ERROR_CODE_NE_FAILED = 1, // 协商失败
-        ERROR_CODE_CONNECT_FAILED, // 连接失败
-        ERROR_CODE_OTHER, // 其他错误
+        ERROR_CODE_CONNECT_FAILED // 连接错误（主动断开或被动断开）
     };
 
 	//virtual ~Channel();
@@ -27,7 +34,7 @@ public:
 	* @param data  数据内容
 	* @return int 写入大小
 	*/
-	virtual int write(const QByteArray &data) = 0;
+	virtual int write(const QByteArray& data) = 0;
 
     /**
 	* @brief  关闭当前传输通道
@@ -79,10 +86,16 @@ public:
 signals:
 
     /**
-	* @brief  接受到的可靠数据
+	* @brief  ICE初始化成功，必须收到该信号后才可以调用获取SDP的接口
 	* @return void
 	*/
     void initialized();
+
+    /**
+	* @brief  连接成功
+	* @return void
+	*/
+	void connected();
 
     /**
 	* @brief  接受到的可靠数据
@@ -100,23 +113,10 @@ signals:
 	void error(int code, QString msg);
 
     /**
-	* @brief  连接断开
-	* @return void
-	*/
-	void disconnected();
-
-    /**
 	* @brief  通道空闲，可以继续发送数据
 	* @return void
 	*/
     void idle();
-
-
-    /**
-	* @brief  连接成功
-	* @return void
-	*/
-	void connected();
 };
 
 //! [0]
@@ -132,9 +132,12 @@ public:
 	* @brief  传输层接口初始化，该接口只调用一次
 	* @param turnserver  标准rfc-5766的服务器，示例：turnserver.trademessenger.com; 192.168.17.153；192.168.17.153:80
 	* @param logFile  日志文件
+    * @param uName turn 的用户名称，default:test
+    * @param passwd turn用户的用户秘密，default:test
+    * @param reaml turn的realm信息,default:www.vemic.com
 	* @return void
 	*/
-	virtual void init(QString turnserver, QString logFile) = 0;
+	virtual void init(QString turnserver, QString logFile, const QString &uName = "test",const QString &passwd = "test",const QString &realm = "www.vemic.com") = 0;
 
     /**
 	* @brief  获取当前设置的服务器地址
@@ -142,22 +145,12 @@ public:
 	*/
     virtual QString getTurnServer() = 0;
 
-
-    /**
-	* @brief  设置当前用户
-    * @param currentUser  当前用户
-	* @return void
-	*/
-	virtual void updateCurrentUser(QString currentUser) = 0;
-
-
     /**
 	* @brief  创建一个Session， 返回sessionID
-	* @param isControl  是否控制端
 	* @param sessionId  Session的唯一ID，传空是自动获取，非空时是与对方的传输通道保持一致
 	* @return QString 唯一的SessioID
 	*/
-	virtual QString initSession(bool isControl, QString sessionId = "") = 0;
+	virtual QString initSession(QString sessionId = "") = 0;
 
     /**
 	* @brief  获取可用的传输通道
@@ -165,12 +158,6 @@ public:
 	* @return Channel* 传输通道
 	*/
     virtual Channel* getChannel(QString sessionId) = 0;
-
-    /**
-	* @brief  获取当前用户
-	* @return QString 当前用户
-	*/
-	virtual QString getCurrentUser() = 0;
 };
 
 

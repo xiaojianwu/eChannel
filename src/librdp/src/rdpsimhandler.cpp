@@ -10,7 +10,7 @@ RDPSimHandler::RDPSimHandler(QObject *parent)
 	: m_simSocket(NULL),
 	m_channel(NULL),
 	m_viewerProcess(NULL),
-	m_terminated(false),
+	m_isClosing(false),
 	m_socketDescriptor(0),
     m_isStartFailed(false)
 {
@@ -45,6 +45,7 @@ void RDPSimHandler::init(TransferInterface* pInterface, RDPInterface* rdpinterfa
 
     connect(m_channel, SIGNAL(readyRead(const QByteArray&)), this, SLOT(onRead(const QByteArray&)));
     connect(m_channel, SIGNAL(connected()), this, SLOT(onConnected()));
+    connect(m_channel, SIGNAL(error(int, QString)), this, SLOT(onChannelError(int, QString)));
 }
 
 
@@ -106,7 +107,7 @@ void RDPSimHandler::startVNCViewer()
 
 	if (!QFile::exists(program))
 	{
-		onProcessExit();
+		close();
 		return;
 	}
 
@@ -129,7 +130,8 @@ void RDPSimHandler::onViewerProcessExit(int exitCode, QProcess::ExitStatus exitS
 {
 	LOG_DEBUG() << "RDPSimHandler::onViewerProcessExit exitCode=" << exitCode << "exitStatus=" << exitStatus ;
 
-	onProcessExit();
+    // 直接通过与模拟socket的链接断开后，即判断为断开。
+	//close();
 }
 
 void RDPSimHandler::onViewerProcessStateChanged (QProcess::ProcessState newState)
@@ -140,16 +142,30 @@ void RDPSimHandler::onViewerProcessStateChanged (QProcess::ProcessState newState
 void RDPSimHandler::onViewerProcessError ( QProcess::ProcessError error )
 {
 	LOG_DEBUG() << "RDPSimHandler::onViewerProcessError error=" << error ;
-	onProcessExit();
+	//close();
 }
 
-
-void RDPSimHandler::onProcessExit()
+void RDPSimHandler::close()
 {
-	if (!m_terminated)
-	{
-		emit error(m_sessionId, RDPInterface::RDP_ERROR_PROCESS_EXIT, "process exit");
-	}
+    if (!m_isClosing)
+    {
+        m_isClosing = true;
+
+        if (m_channel)
+        {
+            m_channel->close();
+        }
+
+        if (m_simSocket)
+        {
+            m_simSocket->close();
+        }
+
+        // 等待模拟线程退出
+        m_simSocketThread.quit();
+        m_simSocketThread.wait();
+    }
+
 }
 
 // viewer连接成功， client端
@@ -196,34 +212,12 @@ void RDPSimHandler::onSimRead(const QByteArray& data)
 	m_channel->write(data);
 }
 
-void RDPSimHandler::onSimError(QString errMsg)
-{
-	if (!m_terminated)
-	{
-		// 等待模拟线程退出
-		m_simSocketThread.quit();
-		m_simSocketThread.wait();
 
-		if (!m_isControl)
-		{
-            emit error(m_sessionId, RDPInterface::RDP_ERROR_SIM_SOCKET_DISCONNECT, QString("sim socket error:%1").arg(errMsg));
-		}
-	}
-}
 void RDPSimHandler::onSimDisconnected()
 {
-	if (!m_terminated)
-	{
-		// 等待模拟线程退出
-		m_simSocketThread.quit();
-		m_simSocketThread.wait();
+    qDebug() << "onSimDisconnected exit";
 
-		if (!m_isControl)
-		{
-            emit error(m_sessionId, RDPInterface::RDP_ERROR_SIM_SOCKET_DISCONNECT, "sim socket disconnect");
-		}
-		
-	}
+    close();
 }
 
 
@@ -245,6 +239,18 @@ void RDPSimHandler::onConnected()
     
 }
 
+
+void RDPSimHandler::onChannelError(int code, QString errMsg)
+{
+    qDebug() << QString("%1 onChannelError. code=%2, msg=%3").arg(QDateTime::currentDateTime().toString("hh:mm:ss-zzz")).arg(code).arg(errMsg);
+
+    // 此时channel已经被销毁，不可再使用
+    m_channel = NULL;
+
+    emit error(m_sessionId, RDPInterface::RDP_ERROR_SIM_SOCKET_DISCONNECT, QString("channel error:%1").arg(errMsg));
+}
+
+
 void RDPSimHandler::createSimSocket(int socketNotifier)
 {
 	m_simSocket = new SimSocket();
@@ -252,7 +258,6 @@ void RDPSimHandler::createSimSocket(int socketNotifier)
 
     connect(m_simSocket, SIGNAL(sigSimConnected()), this, SLOT(onSimConnected()));
     connect(m_simSocket, SIGNAL(sigSimRead(const QByteArray&)), this, SLOT(onSimRead(const QByteArray&)));
-    connect(m_simSocket, SIGNAL(sigSimError(QString)), this, SLOT(onSimError(QString)));
     connect(m_simSocket, SIGNAL(sigSimDisconnected()), this, SLOT(onSimDisconnected()));
 
 	m_simSocket->moveToThread(&m_simSocketThread);
@@ -287,7 +292,7 @@ void RDPSimHandler::onRead(const QByteArray& buf)
 
 void RDPSimHandler::terminate()
 {
-	m_terminated = true;
 	LOG_DEBUG()  << "sessionId=" << m_sessionId;
-    m_simSocket->close();
+    
+    close();   
 }

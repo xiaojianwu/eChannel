@@ -52,7 +52,7 @@ public:
 
 public:
 
-	virtual void init(TransferInterface* pInterface, QString vncViewerPath, int vncPort);
+	virtual void init(TransferInterface* pInterface, QString vncViewerPath, int vncPort, QString logFilePath);
 
 	virtual QString getVncViewerPath();
 

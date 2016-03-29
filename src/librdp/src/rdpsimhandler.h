@@ -41,12 +41,12 @@ public slots:
     // channel信号处理
     void onRead(const QByteArray& data);
     void onConnected();
+    void onChannelError(int code, QString msg);
 
 
     // 模拟socket信号处理
     void onSimConnected();
     void onSimRead(const QByteArray& data);
-    void onSimError(QString errMsg);
     void onSimDisconnected();
 
 	void onNewSimConnection(int socketDescriptor);
@@ -55,12 +55,13 @@ public slots:
 	void onViewerProcessStateChanged (QProcess::ProcessState newState);
 	void onViewerProcessError ( QProcess::ProcessError error );
 
+
+private:
+    void close();
+
 	
 signals:
 	void error(QString sessionId, int code, QString errMsg);
-
-private:
-	void onProcessExit();
 
 private:
 	QString			m_sessionId;
@@ -75,8 +76,6 @@ private:
 
 	SimSocket*		m_simSocket;
 
-
-	bool			m_terminated;
 	TransferInterface*	m_pInterface;
 	RDPInterface*	m_rdpInterface;
 
@@ -91,6 +90,9 @@ private:
 	QThread			m_simSocketThread;
 
 	int				m_simPort;
+
+
+    bool            m_isClosing;
 };
 
 #endif // RDP_SIM_HANDLER_H

@@ -183,6 +183,7 @@ void initIceStransCfg(pj_ice_strans_cfg	& cfg	,const char* rfc5766 ,unsigned so_
 	pj_ice_strans_cfg_default(&cfg);
 	cfg.stun_cfg.pf = &iceCfg.cp.factory ;
 	cfg.stun_cfg.timer_heap = iceCfg.timer_heap;
+	print_debug_log("session timer heap pointer=%p",iceCfg.timer_heap) ;
 	cfg.stun_cfg.ioqueue = iceCfg.ioqueue;
 	cfg.af = pj_AF_INET();	
 	
@@ -380,7 +381,8 @@ void cbOnIceComplete(pj_ice_strans* iceSt,pj_ice_strans_op op,pj_status_t status
 				pj_sockaddr_print((pj_sockaddr_t*)&(vlist->lcand->addr),ipaddloc, PJ_INET6_ADDRSTRLEN,3);
 				print_debug_log("cbOnIceComplete negotiation completed remote addr=%s type=%s,local addr=%s,type=%s",
 					ipaddr,pj_ice_get_cand_type_name(vlist->rcand->type),ipaddloc,pj_ice_get_cand_type_name(vlist->lcand->type)) ;
-				if(vlist->lcand->type==PJ_ICE_CAND_TYPE_RELAYED&& vlist->rcand->type==PJ_ICE_CAND_TYPE_RELAYED){
+				
+				if(vlist->lcand->type==PJ_ICE_CAND_TYPE_RELAYED || vlist->rcand->type==PJ_ICE_CAND_TYPE_RELAYED){
 					relay = true ;
 				}
 				break;
@@ -390,7 +392,8 @@ void cbOnIceComplete(pj_ice_strans* iceSt,pj_ice_strans_op op,pj_status_t status
 	}	
 }
 
-void createSession(void * pUser,const char*Name ,const char* rfc5766,unsigned soSndsize,unsigned soRecvSize ){		
+bool createSession(void * pUser,const char*Name ,const char* rfc5766,unsigned soSndsize,unsigned soRecvSize ){		
+	bool   bRet = false ;
 	do 
 	{
 		if (pUser == NULL){
@@ -409,8 +412,9 @@ void createSession(void * pUser,const char*Name ,const char* rfc5766,unsigned so
 			print_warning_log("already have ICE instance") ;
 			break ;
 		}
-		if (iceCfg.pool==NULL  ){
-			iceAppInit(rfc5766) ;
+		if (iceCfg.pool==NULL && !iceAppInit(rfc5766) ){
+			print_error_log("init ice app failed");
+			break;
 		}
 
 		pj_ice_strans_cfg  scfg;
@@ -433,12 +437,14 @@ void createSession(void * pUser,const char*Name ,const char* rfc5766,unsigned so
 			&sInfo->icest);		/* instance ptr */		
 		if (status != PJ_SUCCESS){			
 			print_error_log("error creating ice %s ",pjstInfo(status).c_str());
-		}else{
-			iceCfg.ref++;
-			print_info_log("ICE instance successfully created");
+			break;
 		}
+		iceCfg.ref++;
+		print_info_log("ICE instance successfully created");
+		bRet = true;
+		
 	} while (false);
-
+	return  bRet ;
 }
 void  resetRemoteInfo(ICE_Session::rem_info &info ){
 	pj_bzero(&info,sizeof(ICE_Session::rem_info));

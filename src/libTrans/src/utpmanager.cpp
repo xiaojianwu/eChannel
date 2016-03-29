@@ -58,8 +58,7 @@ void UTPManager::init()
 
     
     connect(m_utpHandle, SIGNAL(utpIdle(const QString&)), this, SLOT(onUtpIdle(const QString&)));
-    connect(m_utpHandle, SIGNAL(utpError(int, QString)), this, SLOT(onUtpError(int, QString)));
-    
+    connect(m_utpHandle, SIGNAL(utpError(QString, int, QString)), this, SLOT(onUtpError(QString, int, QString)));   
 
     m_utpThread.start();
 
@@ -84,12 +83,10 @@ int UTPManager::createUtpSocket(QString peerAddress, TransportChannel* channel)
     return m_connID;
 }
 
-
+// 主动关闭
 void UTPManager::close(QString peerAddress, int connectID)
 {
     m_utpHandle->closeSocket(peerAddress, connectID);
-    m_hashChannels.remove(peerAddress);
-    m_hashIDChannels.remove(connectID);
 }
 
 void UTPManager::udpRecv(QString peerAddr, const QByteArray& buf)
@@ -118,7 +115,7 @@ void UTPManager::onUtpReqSend(QString peerAddress, const QByteArray& buf)
 // utp解封后的原始数据包
 void UTPManager::onUtpRecv(int connectID, const QByteArray& buf)
 {
-
+    //QMutexLocker locker(m_mutexChannels);
     if (m_hashIDChannels.contains(connectID))
     {
         TransportChannel* channel = m_hashIDChannels[connectID];
@@ -167,13 +164,28 @@ void UTPManager::onUtpConnected(int connectID)
     }
 }
 
-void UTPManager::onUtpError(int connectID, QString errMsg)
+// 等待utp的关闭完成后移除
+void UTPManager::onUtpError(QString peerAddr, int connectID, QString errMsg)
 {
+    TransportChannel* channel = NULL;
     if (m_hashIDChannels.contains(connectID))
     {
-        TransportChannel* channel = m_hashIDChannels[connectID];
+        channel = m_hashIDChannels[connectID];
+        m_hashIDChannels.remove(connectID);
+    }
+    if (m_hashChannels.contains(peerAddr))
+    {
+        if (channel == NULL)
+        {
+            channel = m_hashChannels[peerAddr];
+        }
+        m_hashChannels.remove(peerAddr);
+    }
+    if (channel)
+    {
         channel->conncetError(errMsg);
     }
+    
 }
 
 void UTPManager::onUtpIdle(const QString& peerAddr)

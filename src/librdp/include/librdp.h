@@ -1,12 +1,19 @@
 #ifndef RDP_INTERFACE_H
 #define RDP_INTERFACE_H
 
-#include <QString>
-
-#include <QObject>
-
-#include <QMetaType>
-
+/*!
+ * \file libRDP.h
+ * \date 2016/03/28 16:37
+ *
+ * \author wuxiaojian
+ * Contact: wuxiaojian@focusteach.com
+ *
+ * \brief 
+ *
+ * remote desktop interface
+ *
+ * \note
+*/
 #include <libTrans.h>
 
 //! [0]
@@ -29,9 +36,10 @@ public:
 	* @param pInterface  传输层接口指针
     * @param vncViewerPath  viewer程序的目录
     * @param vncPort  vnc服务的端口
+    * @param logFilePath  日志文件路径
 	* @return void
 	*/
-	virtual void init(TransferInterface* pInterface, QString vncViewerPath, int vncPort) = 0;
+	virtual void init(TransferInterface* pInterface, QString vncViewerPath, int vncPort, QString logFilePath) = 0;
 
 
     /**
@@ -84,7 +92,7 @@ public:
 	virtual void recvRDPControl(QString sessionId) = 0;
 
     /**
-	* @brief  结束会话
+	* @brief  主动结束会话（被动不要调用此接口）
 	* @param sessionId  Session的唯一ID
 	* @return void
 	*/

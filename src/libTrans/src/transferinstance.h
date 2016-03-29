@@ -21,16 +21,14 @@ public:
 	~TransferInstance();
 
 public:
-	virtual void init(QString turnserver, QString logFile);
+	virtual void init(QString turnserver, QString logFile, const QString &uName = "test",const QString &passwd = "test",const QString &realm = "www.vemic.com");
 
     virtual QString getTurnServer();
-
-	virtual void updateCurrentUser(QString currentUser);
 
 
 	// 创建一个Session， 返回sessionID
 	// Session由发送方生成，接受方需要传入发送方生成的SessionId
-	virtual QString initSession(bool isControl, QString sessionId = "");
+	virtual QString initSession(QString sessionId = "");
 
     /**
 	* @brief  获取可用的传输通道
@@ -40,12 +38,9 @@ public:
     virtual Channel* getChannel(QString sessionId);
 
 
-	virtual QString getCurrentUser() { return m_currentUser; }
-
 private:
 
     QString         m_turnServer;
-	QString			m_currentUser;
 };
 
 #endif // TRANSFER_INSTANCE_H

@@ -1705,26 +1705,27 @@ void UTPSocket::apply_ccontrol(size_t bytes_acked, uint32 actual_delay, int64 mi
 	max_window = clamp<size_t>(max_window, MIN_WINDOW_SIZE, opt_sndbuf);
 
 	// used in parse_log.py
-#ifdef _PARSE_
+#ifdef _PARSE_LOG_
 	log(UTP_LOG_NORMAL, "actual_delay:%u our_delay:%d their_delay:%u off_target:%d max_window:%u "
-			"delay_base:%u delay_sum:%d target_delay:%d acked_bytes:%u cur_window:%u "
-			"scaled_gain:%f rtt:%u rate:%u wnduser:%u rto:%u timeout:%d get_microseconds:"I64u" "
-			"cur_window_packets:%u packet_size:%u their_delay_base:%u their_actual_delay:%u "
-			"average_delay:%d clock_drift:%d clock_drift_raw:%d delay_penalty:%d current_delay_sum:"I64u
-			"current_delay_samples:%d average_delay_base:%d last_maxed_out_window:"I64u" opt_sndbuf:%d "
-			"current_ms:"I64u"",
-			actual_delay, our_delay / 1000, their_hist.get_value() / 1000,
-			int(off_target / 1000), uint(max_window), uint32(our_hist.delay_base),
-			int((our_delay + their_hist.get_value()) / 1000), int(target / 1000), uint(bytes_acked),
-			(uint)(cur_window - bytes_acked), (float)(scaled_gain), rtt,
-			(uint)(max_window * 1000 / (rtt_hist.delay_base?rtt_hist.delay_base:50)),
-			(uint)max_window_user, rto, (int)(rto_timeout - ctx->current_ms),
-			utp_call_get_microseconds(this->ctx, this), cur_window_packets, (uint)get_packet_size(),
-			their_hist.delay_base, their_hist.delay_base + their_hist.get_value(),
-			average_delay, clock_drift, clock_drift_raw, penalty / 1000,
-			current_delay_sum, current_delay_samples, average_delay_base,
-			uint64(last_maxed_out_window), int(opt_sndbuf), uint64(ctx->current_ms));
-#endif // _PARSE_
+		"delay_base:%u delay_sum:%d target_delay:%d acked_bytes:%u cur_window:%u "
+		"scaled_gain:%f rtt:%u rate:%u wnduser:%u rto:%u timeout:%d get_microseconds:"I64u" "
+		"cur_window_packets:%u packet_size:%u their_delay_base:%u their_actual_delay:%u "
+		"average_delay:%d clock_drift:%d clock_drift_raw:%d delay_penalty:%d current_delay_sum:"I64u
+		"current_delay_samples:%d average_delay_base:%d last_maxed_out_window:"I64u" opt_sndbuf:%d "
+		"current_ms:"I64u"",
+		actual_delay, our_delay / 1000, their_hist.get_value() / 1000,
+		int(off_target / 1000), uint(max_window), uint32(our_hist.delay_base),
+		int((our_delay + their_hist.get_value()) / 1000), int(target / 1000), uint(bytes_acked),
+		(uint)(cur_window - bytes_acked), (float)(scaled_gain), rtt,
+		(uint)(max_window * 1000 / (rtt_hist.delay_base ? rtt_hist.delay_base : 50)),
+		(uint)max_window_user, rto, (int)(rto_timeout - ctx->current_ms),
+		utp_call_get_microseconds(this->ctx, this), cur_window_packets, (uint)get_packet_size(),
+		their_hist.delay_base, their_hist.delay_base + their_hist.get_value(),
+		average_delay, clock_drift, clock_drift_raw, penalty / 1000,
+		current_delay_sum, current_delay_samples, average_delay_base,
+		uint64(last_maxed_out_window), int(opt_sndbuf), uint64(ctx->current_ms));
+#endif // _PARSE_LOG_
+
 }
 
 static void utp_register_recv_packet(UTPSocket *conn, size_t len)

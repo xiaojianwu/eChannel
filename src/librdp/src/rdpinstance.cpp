@@ -24,20 +24,14 @@ RDPInstance::~RDPInstance()
 
 
 
-void RDPInstance::init(TransferInterface* pInterface, QString vncViewerPath, int vncPort)
+void RDPInstance::init(TransferInterface* pInterface, QString vncViewerPath, int vncPort, QString logFilePath)
 {
 	m_vncViewerPath = vncViewerPath;
 	m_pInterface = pInterface;
 
     m_vncPort = vncPort;
 
-	QString appdataPath = QProcessEnvironment::systemEnvironment().value("APPDATA");
-	QDir dir;
-	QString logpath = QString("%1/FocusChina/FocusTeachService/logs").arg(appdataPath);
-	dir.mkpath(logpath);
-	QString logfile = QString("%1/rdp_%2.log").arg(logpath).arg(m_pInterface->getCurrentUser());
-
-	//RollingFileAppender* appdender = new RollingFileAppender(logfile);
+	//RollingFileAppender* appdender = new RollingFileAppender(logFilePath);
 	//appdender->setDetailsLevel(Logger::Debug);
 	//appdender->setDatePattern(RollingFileAppender::DailyRollover);
 
@@ -61,7 +55,7 @@ QString RDPInstance::getVncViewerPath()
 
 void RDPInstance::initConnection(QString sessionId, bool isControl)
 {
-	LOG_DEBUG() << "sessionId=" << sessionId << "isControl=" << isControl << "user=" << m_pInterface->getCurrentUser();
+	LOG_DEBUG() << "sessionId=" << sessionId << "isControl=" << isControl;
     const bool isMainThread = 
         QThread::currentThread() == QCoreApplication::instance()->thread();
     Q_ASSERT_X(isMainThread, "RDPInstance::initConnection", "not in main thread.please check it.");
@@ -77,7 +71,7 @@ void RDPInstance::initConnection(QString sessionId, bool isControl)
 
 void RDPInstance::initChannel(QString sessionId, QString viewrArgs)
 {
-    LOG_DEBUG() << "sessionId=" << sessionId << "user=" << m_pInterface->getCurrentUser();
+    LOG_DEBUG() << "sessionId=" << sessionId;
     const bool isMainThread = 
         QThread::currentThread() == QCoreApplication::instance()->thread();
     Q_ASSERT_X(isMainThread, "RDPInstance::initConnection", "not in main thread.please check it.");
@@ -103,51 +97,61 @@ void RDPInstance::initChannel(QString sessionId, QString viewrArgs)
 // 发送协助请求
  void RDPInstance::sendRDPAssitant(QString sessionId)
  {
-	 LOG_DEBUG() << "sessionId=" << sessionId << "user=" << m_pInterface->getCurrentUser();
+	 LOG_DEBUG() << "sessionId=" << sessionId;
 	 initConnection(sessionId, false);// 启动一个客户端模拟器
  }
 
  // 接受协助请求
  void RDPInstance::recvRDPAssitant(QString sessionId)
  {
-     LOG_DEBUG() << "sessionId=" << sessionId << "user=" << m_pInterface->getCurrentUser();
+     LOG_DEBUG() << "sessionId=" << sessionId;
      initConnection(sessionId, true);// 启动一个服务端模拟器
  }
 
 // 发送控制请求
  void RDPInstance::sendRDPControl(QString sessionId)
  {
-	 LOG_DEBUG() << "sessionId=" << sessionId << "user=" << m_pInterface->getCurrentUser();
+	 LOG_DEBUG() << "sessionId=" << sessionId;
 	 initConnection(sessionId, true);
  }
 
 // 接受控制请求
  void RDPInstance::recvRDPControl(QString sessionId)
  {
-	 LOG_DEBUG() << "sessionId=" << sessionId << "user=" << m_pInterface->getCurrentUser();
+	 LOG_DEBUG() << "sessionId=" << sessionId;
 	 initConnection(sessionId, false);
  }
 
 
- void RDPInstance::onError(QString sessionID, int code, QString errMsg)
+ void RDPInstance::onError(QString sessionId, int code, QString errMsg)
  {
-     emit error(sessionID, code, errMsg);
+#ifdef _DEBUG
+     qDebug() << "RDPInstance::onError"
+#else
+     LOG_DEBUG()
+#endif // _DEBUG
+     << "sessionId=" << sessionId << "errMsg=" << errMsg;
+     if (m_handlers.contains(sessionId))
+     {
+         RDPSimHandler* handler = m_handlers[sessionId];
+         disconnect(m_pInterface, 0, handler, 0);
+
+         delete handler;
+
+         m_handlers.remove(sessionId);
+     }
+
+     emit error(sessionId, code, errMsg);
  }
 
 // 结束会话
  void RDPInstance::terminate(QString sessionId)
  {
-	 LOG_DEBUG() << "sessionId=" << sessionId << "user=" << m_pInterface->getCurrentUser();
+	 LOG_DEBUG() << "sessionId=" << sessionId;
 	 if (m_handlers.contains(sessionId))
 	 {
 		 RDPSimHandler* handler = m_handlers[sessionId];
-
-		 disconnect(m_pInterface, 0, handler, 0);
 		 handler->terminate();
-
-		 delete handler;
-
-		 m_handlers.remove(sessionId);
 	 }
  }
 

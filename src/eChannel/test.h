@@ -1,8 +1,13 @@
 #ifndef Test_H
 #define Test_H
 
-#include <QtWidgets/QMainWindow>
 #include "ui_test.h"
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
+#include <QtWidgets/QMainWindow>
+#else
+#include <QtGui/QMainWindow>
+#endif
 
 #include <libTrans.h>
 
@@ -64,10 +69,6 @@ public:
         // µÇÂ¼½á¹û
         void onLoginResult(LoginResult loginResult);
 
-        void onError(QString uuid, QString msg);
-
-        void onTerminate(QString uuid);
-
         void onChannelInit();
 
         void onConnected();
@@ -78,9 +79,11 @@ public:
 
         void onRDPError(QString uuid, int code, QString msg);
 
+        void onStop();
+
 private:
     void invite();
-    void initChannel(bool isControl);
+    void initChannel();
 
 private:
     Ui::testRDPClass ui;

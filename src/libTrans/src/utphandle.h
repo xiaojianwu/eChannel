@@ -11,6 +11,8 @@
 #include <QHash>
 #include <QTimer>
 
+#include <QStringList>
+
 class UtpHandle : public QObject
 {
     Q_OBJECT
@@ -75,7 +77,7 @@ signals:
     void utpConnected(int connectID);
 
     // utp_socket error
-    void utpError(int connectID, QString msg);
+    void utpError(QString peerAddr, int connectID, QString msg);
 
     // utp disconnect
     void utpDisconnected(int connectID);
@@ -126,6 +128,11 @@ private:
 
     QHash<int, utp_socket*> m_utp_sockets;
     QHash<QString, utp_socket*> m_utp_sockets_addr;
+
+    QStringList             m_okChannels;
+
+    //QHash<QString, QQueue<IncomingUtpPack>>  m_recvQueue;
+    //QHash<QString, QQueue<PackInfo>>  m_writeQueue;
 
     QQueue<IncomingUtpPack>  m_recvQueue;
     QQueue<PackInfo>  m_writeQueue;

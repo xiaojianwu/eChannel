@@ -20,6 +20,9 @@ TransportChannel::TransportChannel(QObject *parent)
     m_isConnected = false;
 
     m_iceSocket = NULL;
+
+
+    m_isClosing = false;
 }
 
 TransportChannel::~TransportChannel()
@@ -42,16 +45,15 @@ void TransportChannel::init(QString sessionID, bool isControl, TransferInterface
 
 }
 
-
+// 主动关闭
 void TransportChannel::close()
 {
-    // TODO:
-    delete m_iceSocket;
-    m_iceSocket = NULL;
-
-    disconnect(this);
-
-    emit sigClose();
+    if (!m_isClosing)
+    {
+        m_isClosing = true;
+        UTPManager::instance()->close(m_peerAddress, m_utpConnectID);
+    }
+    
 }
 
 void TransportChannel::onInit()
@@ -86,7 +88,19 @@ void TransportChannel::onICEInit(bool isSuccess )
 
     m_isInitialized = isSuccess;
 
-    emit initialized();
+    if (isSuccess)
+    {
+        emit initialized();
+
+        if (!m_remoteSDP.isEmpty())
+        {
+            m_iceSocket->negoWith(m_remoteSDP);
+        }
+    }
+    else
+    {
+        emit error(ERROR_CODE_NE_FAILED, "ice init failed.");
+    }
 }
 
 bool TransportChannel::isInitialized()
@@ -105,6 +119,12 @@ void TransportChannel::onICENego(bool isSuccess, bool isRelay, QString address)
 #ifdef _DEBUG
     qDebug() << "TransportChannel::onICENego isSuccess=" << isSuccess << "isRelay= " << isRelay << "address=" << address ;
 #endif // _DEBUG
+
+    if (m_iceNego)
+    {
+        // 已协商
+        return;
+    }
 
     m_peerAddress = address;
 
@@ -181,7 +201,12 @@ void TransportChannel::updateRemoteSDP(QString sdp)
 {
     m_remoteSDP = sdp;
     Q_ASSERT_X(m_iceSocket != NULL, "updateRemoteSDP", "icesocket not initialed.");
-    m_iceSocket->negoWith(sdp);
+
+    if (m_isInitialized)
+    {
+        m_iceSocket->negoWith(sdp);
+    }
+    
 }
 
 
@@ -196,10 +221,15 @@ int TransportChannel::write(const QByteArray &data)
 #ifdef _DEBUG
     qDebug() << "TransportChannel::write m_peerAddress=" << m_peerAddress;
 #endif // _DEBUG
-    bool ba = !m_peerAddress.isEmpty();
-    Q_ASSERT_X(ba, "TransportChannel::write", QString("bad connection.address=%1").arg(m_peerAddress).toStdString().c_str());
-
-    UTPManager::instance()->reqUtpPack(m_peerAddress, data);
+    if (m_peerAddress.isEmpty())
+    {
+        m_writeBuf.append(data);
+    }
+    else
+    {
+        UTPManager::instance()->reqUtpPack(m_peerAddress, data);
+    }
+    //Q_ASSERT_X(ba, "TransportChannel::write", QString("bad connection.address=%1").arg(m_peerAddress).toStdString().c_str());
     return 0; // write(data.data(), data.size());
 }
 
@@ -218,6 +248,11 @@ void TransportChannel::connectSuccess(QString peerAddr)
     if (!peerAddr.isEmpty())
     {
         m_peerAddress = peerAddr;
+
+        if (!m_writeBuf.isEmpty())
+        {
+            UTPManager::instance()->reqUtpPack(m_peerAddress, m_writeBuf);
+        }
     }
     m_isConnected = true;
     emit connected(); 
@@ -225,7 +260,14 @@ void TransportChannel::connectSuccess(QString peerAddr)
 
 void TransportChannel::conncetError(QString errMsg)
 {
-    emit error(ERROR_CODE_OTHER, errMsg);
+
+    delete m_iceSocket;
+    m_iceSocket = NULL;
+
+    emit error(ERROR_CODE_CONNECT_FAILED, errMsg);
+
+    // 通知session清理
+    emit sigClose();
 }
 
 

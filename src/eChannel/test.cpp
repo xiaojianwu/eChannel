@@ -33,6 +33,10 @@ Test::Test(QWidget *parent)
     connect(ui.pushButton_filerecv, SIGNAL(clicked()), this, SLOT(recvFile()));
     connect(ui.pushButton_fileselect, SIGNAL(clicked()), this, SLOT(selectSendFile()));
     connect(ui.pushButton_filerecv_select, SIGNAL(clicked()), this, SLOT(selectRecvFile()));
+
+    connect(ui.pushButton_terminate, SIGNAL(clicked()), this, SLOT(onStop()));
+
+    
     
 
 	m_isTurn = false;
@@ -137,18 +141,29 @@ void Test::recvFile()
     accept();
 }
 
+void Test::onStop()
+{
+    m_fileRecvHandle->close();
+
+    if (m_channel)
+    {
+        m_channel->close();
+        m_channel = NULL;
+    }
+
+    QString msg = QString("%1 close.").arg(QDateTime::currentDateTime().toString("hh:mm:ss-zzz"));
+    ui.textEdit->append(msg);
+}
+
 void Test::login()
 {
 	m_currentUser = ui.lineEdit_loginuser->text();
-
-
-	m_p2pinterface->updateCurrentUser(m_currentUser);
 
 	QString viewer = QString("%1\\%2").arg(qApp->applicationDirPath()).arg("FocusTeachVNCViewer.exe");	
 
 
     int vncPort = ui.lineEdit_VNCPort->text().toInt();
-	m_rdpinterface->init(m_p2pinterface, viewer, vncPort);
+	m_rdpinterface->init(m_p2pinterface, viewer, vncPort, "d:\\rdp.log");
 
 
 	CommandClient::instance()->login(ui.lineEditIP->text(), ui.lineEditPort->text().toUShort(), m_currentUser);
@@ -168,8 +183,7 @@ void Test::onRead(const QByteArray& data)
 
 void Test::invite()
 {
-    bool isControl = true;
-    initChannel(isControl);
+    initChannel();
 
     if (m_channel->isInitialized())
     {
@@ -213,10 +227,10 @@ void Test::onChannelInit()
         m_isAccept = false;
     }
 
-    if (!m_remoteSDP.isEmpty())
-    {
-        m_channel->updateRemoteSDP(m_remoteSDP);
-    }
+    //if (!m_remoteSDP.isEmpty())
+    //{
+    //    m_channel->updateRemoteSDP(m_remoteSDP);
+    //}
     
 }
 
@@ -267,15 +281,6 @@ void Test::cancel()
 	ui.textEdit->append(msg);
 }
 
-// 对方中断
-void Test::onTerminate(QString uuid)
-{
-	QString msg = QString("peer terminate. uuid=%1").arg(m_uuid);
-	ui.textEdit->append(msg);
-
-	m_rdpinterface->terminate(uuid);
-}
-
 
 // 收到邀请
 void Test::onInvite(QString fromuser, RequestType type, QString mediainfo, QString uuid, QString remotesdp)
@@ -301,15 +306,13 @@ void Test::onInvite(QString fromuser, RequestType type, QString mediainfo, QStri
     ui.textEdit->append(m_remoteSDP);
     ui.textEdit->append("=================REMOTE SDP   END=================\n");
 
-    bool isControl = false;
-    initChannel(isControl);
+    initChannel();
 
+    m_channel->updateRemoteSDP(m_remoteSDP);
 
     if (m_channel->isInitialized())
     {
         std::string sdp = m_channel->getLocalSDP().toStdString();
-
-        m_channel->updateRemoteSDP(m_remoteSDP);
 
         // 发送响铃
         CommandClient::instance()->ring(m_uuid, sdp);
@@ -320,15 +323,15 @@ void Test::onInvite(QString fromuser, RequestType type, QString mediainfo, QStri
     }
 }
 
-void Test::initChannel(bool isControl)
+void Test::initChannel()
 {
-    QString msg = QString("%1 initSession. isControl;%2").arg(QDateTime::currentDateTime().toString("hh:mm:ss-zzz")).arg(isControl);
+    QString msg = QString("%1 initSession.").arg(QDateTime::currentDateTime().toString("hh:mm:ss-zzz"));
     ui.textEdit->append(msg);
 
-    m_uuid = m_p2pinterface->initSession(isControl, m_uuid);
+    m_uuid = m_p2pinterface->initSession(m_uuid);
     m_channel = m_p2pinterface->getChannel(m_uuid);
 
-    m_rdpinterface->initChannel(m_uuid, "");
+    
 
     connect(m_channel, SIGNAL(initialized()), this, SLOT(onChannelInit()));
     connect(m_channel, SIGNAL(connected()), this, SLOT(onConnected()));
@@ -336,12 +339,13 @@ void Test::initChannel(bool isControl)
     if (m_isFile)
     {
         connect(m_channel, SIGNAL(idle()), this, SLOT(onIdle()));
-        //connect(m_channel, SIGNAL(readyRead(const QByteArray&)), this, SLOT(onRead(const QByteArray&)));
+        connect(m_channel, SIGNAL(readyRead(const QByteArray&)), this, SLOT(onRead(const QByteArray&)));
+        connect(m_channel, SIGNAL(error(int, QString)), this, SLOT(onChannelError(int, QString)));
     }
-    
-
-    connect(m_channel, SIGNAL(error(int, QString)), this, SLOT(onChannelError(int, QString)));
-    
+    else
+    {
+        m_rdpinterface->initChannel(m_uuid, "");
+    }
 }
 
 
@@ -351,13 +355,6 @@ void Test::onLoginResult(LoginResult loginResult)
 	ui.pushButtonLogin->setDisabled(true);
 	ui.label_12->setText(tr("success"));
 }
-
-void Test::onError(QString uuid, QString msg)
-{
-	QString message = QString("Error: %1 %2").arg(uuid).arg(msg);
-	ui.label_12->setText(message);
-}
-
 
 // 对方响铃，等待中
 void Test::onRing(QString uuid, QString from, QString sdp)
@@ -442,19 +439,16 @@ void Test::onIdle()
         m_channel->write(data);
 
         m_pos = m_pos + data.size();
-        //m_buf.remove(0, 1048576);
 
-        //qint64 pos = m_fileSend->pos();
-        //QString msg = QString("begin: %1.\n. send pos:%2").arg(m_startTime).arg(pos);
-        //ui.textEdit->setPlainText(msg);
+        qint64 pos = m_fileSend->pos();
+        QString msg = QString("begin: %1.\n. send pos:%2").arg(m_startTime).arg(pos);
+        ui.textEdit->setPlainText(msg);
 
         if (m_pos == m_buf.size())
         {
-            //m_buf = m_fileSend->read(1048576); // 1M 缓存大小
+            m_buf = m_fileSend->read(1048576); // 1M 缓存大小
             m_pos = 0;
         }
-
-
     }
     else
     {
@@ -462,6 +456,9 @@ void Test::onIdle()
         {
             QString msg = QString("%1: end.").arg(QDateTime::currentDateTime().toString("hh:mm:ss-zzz"));
             ui.textEdit->append(msg);
+
+            m_channel->close();
+            m_channel = NULL;
         }
     }
 }
@@ -470,8 +467,7 @@ void Test::onChannelError(int code, QString errMsg)
 {
     QString msg = QString("%1 onChannelError. code=%2, msg=%3").arg(QDateTime::currentDateTime().toString("hh:mm:ss-zzz")).arg(code).arg(errMsg);
     ui.textEdit->append(msg);
-
-    m_channel->close();
+    // 此时channel已经被销毁，不可再使用
     m_channel = NULL;
     m_uuid = "";
 }
@@ -481,8 +477,7 @@ void Test::onRDPError(QString uuid, int code, QString errMsg)
     QString msg = QString("%1 onRDPError. code=%2, msg=%3").arg(QDateTime::currentDateTime().toString("hh:mm:ss-zzz")).arg(code).arg(errMsg);
     ui.textEdit->append(msg);
 
-    m_channel->close();
-
+    // 此时channel已经被销毁，不可再使用
     m_channel = NULL;
     m_uuid = "";
 

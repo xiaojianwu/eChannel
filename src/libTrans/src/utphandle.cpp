@@ -77,6 +77,7 @@ void UtpHandle::onInit()
     connect(this, SIGNAL(reqParse(QString, const QByteArray&)), this, SLOT(save2RecvQueue(QString, const QByteArray&)));
     connect(this, SIGNAL(reqPack(QString, const QByteArray&)), this, SLOT(save2WriteQueue(QString, const QByteArray&)));
     connect(this, SIGNAL(reqSetAcceptConnID(QString, int)), this, SLOT(setAcceptConnID(QString, int)));
+    connect(this, SIGNAL(reqClose(QString, int)), this, SLOT(onCloseSocket(QString, int)));
 
     m_timer = new QTimer;
     connect(m_timer, SIGNAL(timeout()), this, SLOT(checkUtp()));
@@ -102,21 +103,17 @@ void UtpHandle::onCloseSocket(QString peerAddr, int connectID)
     bool isClosing = false;
     if (m_utp_sockets.contains(connectID))
     {
-        //utp_socket* s = m_utp_sockets[connectID];
-        //utp_close(s);
-        //isClosing = true;
-
-        m_utp_sockets.remove(connectID);
+        utp_socket* s = m_utp_sockets[connectID];
+        utp_close(s);
+        isClosing = true;
     }
     if (m_utp_sockets_addr.contains(peerAddr))
     {
-        //utp_socket* s = m_utp_sockets_addr[peerAddr];
-        //if (!isClosing)
-        //{
-        //    utp_close(s);
-        //}
-        
-        m_utp_sockets_addr.remove(peerAddr);
+        utp_socket* s = m_utp_sockets_addr[peerAddr];
+        if (!isClosing)
+        {
+            utp_close(s);
+        }
     }
 }
 
@@ -226,6 +223,8 @@ uint64 UtpHandle::callback_on_accept(utp_callback_arguments *a)
     UtpHandle* h = (UtpHandle*)utp_context_get_userdata(a->context);
     h->m_utp_sockets_addr[peerAddr] = s;
 
+    h->m_okChannels << peerAddr;
+
     emit h->utpAccept(peerAddr);
 
     h->processWrite();
@@ -235,16 +234,15 @@ uint64 UtpHandle::callback_on_accept(utp_callback_arguments *a)
 uint64 UtpHandle::callback_on_error(utp_callback_arguments *a)
 {
     QString msg = utp_error_code_names[a->error_code];
-
     qWarning() << LOG_HEAD << QString("[callback_on_error:] %1.").arg(msg);
-
-    UtpHandle* h = (UtpHandle*)utp_context_get_userdata(a->context);
     utp_socket* s = a->socket;
+    UtpHandle* h = (UtpHandle*)utp_context_get_userdata(a->context);
     int connectID = (int)utp_get_userdata(s);
 
-    utp_close(s);
+    //utp_close(s);
 
-    emit h->utpError(connectID, msg);
+    QString peerAddr = h->m_utp_sockets_addr.key(s);
+    //emit h->utpError(peerAddr, connectID, msg);
 
     return 0;
 }
@@ -266,9 +264,12 @@ uint64 UtpHandle::callback_on_state_change(utp_callback_arguments *a)
     switch (a->state) {
     case UTP_STATE_CONNECT:
         {
+            QString peerAddr = h->m_utp_sockets_addr.key(s);
+
+            h->m_okChannels << peerAddr;
+
             emit h->utpConnected(connectID);
         }
-        break;
     case UTP_STATE_WRITABLE:
         {           
             h->processWrite();
@@ -277,15 +278,17 @@ uint64 UtpHandle::callback_on_state_change(utp_callback_arguments *a)
         break;
 
     case UTP_STATE_EOF:
-        qDebug() << "Received EOF from socket; closing\n";
-        utp_close(s);
+        {
+            qDebug() << "Received EOF from socket; closing\n";
+            utp_close(s);
+        }
         break;
 
     case UTP_STATE_DESTROYING:
         {
             qDebug() << "UTP socket is being destroyed; exiting\n";
 
-            stats = utp_get_stats(a->socket);
+            stats = utp_get_stats(s);
             if (stats) {
                 qDebug() << "Socket Statistics:\n";
                 qDebug() << QString("    Bytes sent:          %1").arg(stats->nbytes_xmit);
@@ -300,8 +303,11 @@ uint64 UtpHandle::callback_on_state_change(utp_callback_arguments *a)
             else {
                 qDebug() << "No socket statistics available\n";
             }
-            h->m_utp_sockets.remove(h->m_utp_sockets.key(s));
-            h->m_utp_sockets_addr.remove(h->m_utp_sockets_addr.key(s));
+            QString peerAddr = h->m_utp_sockets_addr.key(s);
+            h->m_utp_sockets.remove(connectID);
+            h->m_utp_sockets_addr.remove(peerAddr);
+
+            emit h->utpError(peerAddr, connectID, "utp socket destroyed.");
         }
         break;
     }
@@ -404,6 +410,12 @@ void UtpHandle::processWrite()
     {
         PackInfo& pack =  m_writeQueue.head();
 
+        if (!m_okChannels.contains(pack.peerAddr))
+        {
+            m_writeQueue.dequeue();
+            continue;
+        }
+
         if (write_data(pack))
         {
             m_writeQueue.dequeue();
@@ -423,6 +435,7 @@ void UtpHandle::processRecv()
         IncomingUtpPack pack =  m_recvQueue.dequeue();
         QByteArray buf = pack.buf;
         QString peerAddr = pack.peerAddr;
+
         unsigned char* socket_data = (unsigned char*)buf.data();
 
         QStringList ipport = peerAddr.split(":");

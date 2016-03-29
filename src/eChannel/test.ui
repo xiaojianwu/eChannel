@@ -411,6 +411,13 @@
          </property>
         </widget>
        </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_terminate">
+         <property name="text">
+          <string>结束</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </widget>
     </widget>

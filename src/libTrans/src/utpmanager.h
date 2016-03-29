@@ -11,6 +11,8 @@
 
 #include "utphandle.h"
 
+#include <QMutex>
+
 class TransportChannel;
 
 class UTPManager : public QObject
@@ -40,7 +42,9 @@ private slots:
     void onUtpAccept(QString peerAddress);
     void onUtpConnected(int connectID);
 
-    void onUtpError(int connectID, QString errMsg);
+    void onUtpError(QString peerAddr, int connectID, QString errMsg);
+
+    //void onUtpDisconnected(QString peerAddr, int connectID);
 
     void onUtpIdle(const QString& peerAddr);
     
@@ -57,6 +61,8 @@ private:
     QThread     m_utpThread;
 
     bool        m_isInited;
+
+    QMutex      m_mutexChannels;
   
 };
 

@@ -19,6 +19,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libutp", "libutp\libutp.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "librdp", "librdp\librdp.vcxproj", "{5CC945E0-3B41-4545-9F05-AD45423A2F01}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "pj", "pj", "{DFC7E6FB-E907-42F8-81F2-EBB2FE9A20F0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -60,5 +62,10 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DA0E03ED-53A7-4050-8A85-90541C5509F8} = {DFC7E6FB-E907-42F8-81F2-EBB2FE9A20F0}
+		{FE07F272-AE7F-4549-9E9F-EF9B80CB1693} = {DFC7E6FB-E907-42F8-81F2-EBB2FE9A20F0}
+		{A5D9AA24-08ED-48B9-BD65-F0A25E96BFC4} = {DFC7E6FB-E907-42F8-81F2-EBB2FE9A20F0}
 	EndGlobalSection
 EndGlobal

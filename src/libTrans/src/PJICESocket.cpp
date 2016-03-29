@@ -21,7 +21,9 @@ PJICESocket::~PJICESocket()
 
 void PJICESocket::startICESocket(const QString &turnsrv)
 {
-	createSession(this,_name.toStdString().c_str(),turnsrv.toStdString().c_str(),_soSndSize,_soRecvSize );
+	if(!createSession(this,_name.toStdString().c_str(),turnsrv.toStdString().c_str(),_soSndSize,_soRecvSize )){
+		cbInitResult(false);
+	}
 }
 
 QString PJICESocket::localSdp(bool isControl)

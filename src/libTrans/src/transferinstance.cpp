@@ -21,9 +21,8 @@ TransferInstance::~TransferInstance()
 {
 }
 
-void TransferInstance::init(QString turnserver, QString logFile)
+void TransferInstance::init(QString turnserver, QString logFile, const QString &uName/* = "test"*/,const QString &passwd/* = "test"*/,const QString &realm/* = "www.vemic.com"*/)
 {
-	//qRegisterMetaType<TransportState>("TransportState");
     m_turnServer = turnserver;
 
 	// Session管理器
@@ -32,6 +31,8 @@ void TransferInstance::init(QString turnserver, QString logFile)
     UTPManager::instance()->init();
 
     FocusIce::PJICESocket::setIceLogfile(logFile);
+
+    FocusIce::PJICESocket::setIceTurnAuth(uName, passwd, realm);
 }
 
 
@@ -40,23 +41,26 @@ QString TransferInstance::getTurnServer()
     return m_turnServer;
 }
 
-void TransferInstance::updateCurrentUser(QString currentUser)
-{
-	m_currentUser = currentUser;
-}
-
-
 // 创建一个Session， 返回sessionID
-// Session由发送方生成，接受方需要传入发送方生成的SessionId
-QString TransferInstance::initSession(bool isControl, QString sessionId)
+// Session由邀请方方生成，接受方需要传入发送方生成的SessionId
+QString TransferInstance::initSession(QString sessionId)
 {
 	QString uuid = sessionId;
+
+    // 用来控制由哪端发起utp connect
+    bool isControl = false;
+
 	if (sessionId.isEmpty())
 	{
 		uuid = QUuid::createUuid().toString();
 		uuid = uuid.remove("{");
 		uuid = uuid.remove("}");
 	}
+    else
+    {
+        // 接收方作为控制端，由于接收方此时的session还未初始化
+        isControl = true;
+    }
 
 
 	Session *session = SessionMgr::instance()->createSession(uuid, isControl);

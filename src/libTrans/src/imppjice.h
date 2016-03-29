@@ -28,7 +28,7 @@ typedef struct _tagIceCfg{
 	FILE			*		log_fhnd;
 	unsigned				ref;
 	_tagIceCfg(){
-		pool = NULL ,thread = NULL,log_fhnd =NULL;
+		pool = NULL ,thread = NULL,log_fhnd =NULL,timer_heap=NULL;
 		thread_quit_flag= false ;	
 		ref=0 ;
 		strncpy(opt.turn_username,DEFAULT_USER,MAX_TURNCHARLEN);
@@ -66,7 +66,7 @@ public:
 void		setLogFile(const char *logfile) ;
 void		setTurnAuth(const char* uName,const char* passwd,const char*reaml) ;
 bool		iceAppInit(const char *rfc5766 ) ;
-void		createSession(void* pUser,const char*Name,const char* rfc5766,unsigned soSndsize,unsigned soRecvSize) ;
+bool		createSession(void* pUser,const char*Name,const char* rfc5766,unsigned soSndsize,unsigned soRecvSize) ;
 void		iceAppStopSession(ICE_Session *pSession );
 int		encodeSession(char buffer[], unsigned maxlen,ICE_Session *pSession);
 void		iceAppInitSession(unsigned rolechar,ICE_Session *pUser);

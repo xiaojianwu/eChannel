@@ -13,14 +13,13 @@ SimSocket::~SimSocket()
 
 }
 
-void SimSocket::init(QString sessionId, bool isControl, int handle, int vncPort)
+void SimSocket::init(QString sessionId, bool isControl, int socketHandle, int vncPort)
 {
 	m_sessionId = sessionId;
 	m_isControl = isControl;
-	m_socketDescriptor = handle;
+	m_socketDescriptor = socketHandle;
 
 	m_tcpSocket = NULL;
-	m_forceClose = false;
 
     m_vncPort = vncPort;
 
@@ -119,23 +118,29 @@ void SimSocket::onSimRead()
 
 void SimSocket::onSimError(QAbstractSocket::SocketError errCode)
 {
-	LOG_DEBUG()  << "sessionId=" << m_sessionId << "error:" << errCode;
+    LOG_DEBUG()  << "sessionId=" << m_sessionId << "error:" << errCode;
+    //if (m_tcpSocket)
+    //{
+    //    delete m_tcpSocket;
+    //    m_tcpSocket = NULL;
 
-	if (!m_forceClose)
-	{
-		// 控制端与viewer的链接
-        emit sigSimError(m_tcpSocket->errorString());
-	}
+    //    // 控制端与viewer的链接
+    //    emit sigSimError(m_tcpSocket->errorString());
+    //}
 }
 
 void SimSocket::onSimDisconnected()
 {
-	LOG_DEBUG()  << "sessionId=" << m_sessionId;
-	if (!m_forceClose)
-	{
-		// 控制端与viewer的链接
-		emit sigSimDisconnected();
-	}
+    LOG_DEBUG()  << "sessionId=" << m_sessionId;
+    if (m_tcpSocket)
+    {
+        m_tcpSocket->deleteLater();
+        m_tcpSocket = NULL;
+    }
+
+	
+	// 控制端与viewer的链接
+	emit sigSimDisconnected();
 }
 
 
@@ -147,14 +152,11 @@ void SimSocket::close()
 void SimSocket::onCloseConnection()
 {
 	LOG_DEBUG()  << "sessionId=" << m_sessionId;
-	disconnect(this, 0);
+	//disconnect(this, 0);
 
 	if (m_tcpSocket)
 	{
-		m_forceClose = true;
 		m_tcpSocket->abort();
-		delete m_tcpSocket;
-		m_tcpSocket = NULL;
 	}
 	else
 	{
